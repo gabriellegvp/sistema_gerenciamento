@@ -1,0 +1,19 @@
+from flask import Flask
+from flask_security import Security, SQLAlchemyUserDatastore
+from flask_sqlalchemy import SQLAlchemy
+
+app = Flask(_name_)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+app.config['SECURITY_PASSWORD_SALT'] = 'mysalt'
+
+db = SQLAlchemy(app)
+
+# Definição de usuários, roles e permissões
+class Role(db.Model):
+    pass
+
+class User(db.Model):
+    pass
+
+user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+security = Security(app, user_datastore)
