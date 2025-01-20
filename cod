@@ -1,19 +1,97 @@
-from flask import Flask
-from flask_security import Security, SQLAlchemyUserDatastore
+from flask import Flask, render_template, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
+from flask_security import Security, SQLAlchemyUserDatastore, UserMixin, RoleMixin, login_required, login_user, logout_user, current_user
+from flask_security.utils import hash_password
 
-app = Flask(_name_)
+# Configuração do app e banco de dados
+app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'mysecretkey'
 app.config['SECURITY_PASSWORD_SALT'] = 'mysalt'
 
 db = SQLAlchemy(app)
 
-# Definição de usuários, roles e permissões
-class Role(db.Model):
-    pass
+# Definição de Role e User
+class Role(db.Model, RoleMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True)
+    description = db.Column(db.String(255))
 
-class User(db.Model):
-    pass
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True)
+    password = db.Column(db.String(255))
+    active = db.Column(db.Boolean())
+    roles = db.relationship('Role', secondary='user_roles')
 
+class UserRoles(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
+
+# Configurando o user datastore
 user_datastore = SQLAlchemyUserDatastore(db, User, Role)
 security = Security(app, user_datastore)
+
+# Rota para o cadastro
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        # Cria o usuário
+        user = user_datastore.create_user(email=email, password=hash_password(password))
+        db.session.commit()
+        flash("Registrado com sucesso! Agora você pode fazer login.", 'success')
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
+# Rota para o login
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        user = user_datastore.get_user(email)
+        if user and user_datastore.verify_password(password, user.password):
+            login_user(user)
+            flash("Login realizado com sucesso!", 'success')
+            return redirect(url_for('profile'))
+        flash("Falha ao fazer login. Verifique as credenciais.", 'danger')
+    return render_template('login.html')
+
+# Rota para o perfil
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html')
+
+# Rota para logout
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("Você foi desconectado!", 'success')
+    return redirect(url_for('login'))
+
+# Rota para recuperação de senha (apenas um exemplo simples)
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email']
+        user = user_datastore.get_user(email)
+        if user:
+            # Aqui você poderia implementar a lógica de envio de email de recuperação de senha.
+            flash("Instruções para redefinir a senha foram enviadas para o seu email.", 'info')
+            return redirect(url_for('login'))
+        flash("Email não encontrado.", 'danger')
+    return render_template('forgot_password.html')
+
+# Criar o banco de dados
+@app.before_first_request
+def create_tables():
+    db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=True)
