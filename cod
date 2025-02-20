@@ -4,7 +4,7 @@ from flask_security import Security, SQLAlchemyUserDatastore, UserMixin, RoleMix
 from flask_security.utils import hash_password
 import os
 
-# Configuração do app e banco de dados
+# Configuração do app e banco de dadoss
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
